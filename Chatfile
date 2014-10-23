@@ -1,0 +1,79 @@
+#!/usr/bin/env ruby
+require 'robut'
+require 'robut/storage/hash_store'
+require 'net/http'
+require 'uri'
+require 'json'
+
+class Love
+
+Robut::Plugin.plugins << Love
+  include Robut::Plugin
+
+  def email_from_nick(nick)
+    uri = URI.parse("https://api.hipchat.com/v2/user/#{nick.strip}?auth_token=#{ENV['HIPCHAT_TOKEN']}")
+    response = Net::HTTP.get_response(uri.host, uri.request_uri)
+    data = JSON.parse(response.body)
+    data['email'] if data
+  end
+
+  # Get a list of all hipchat users
+  # Hipchats API is less than desirable. It will return a max-result set of 100 at a time,
+  # given no start or return index.
+  def get_roster
+    roster = []
+    (0..1000).step(100).each do |n|
+      uri = URI.parse("https://api.hipchat.com/v2/user?auth_token=#{ENV['HIPCHAT_TOKEN']}&start-index=#{n}")
+      response = Net::HTTP.get_response(uri.host, uri.request_uri)
+      data = JSON.parse(response.body)
+      roster << data['items']
+      # We've reached the end of the result set if the API isn't returning a next link
+      if !data['links'].has_key?('next')
+        return roster
+        break
+      end
+    end
+  end
+
+  def post_love(to, from, message)
+    uri = URI.parse("https://heroku-lovemachine.herokuapp.com/love")
+    response = Net::HTTP.post_form(uri, {"to" => to.to_s, "from" => from.to_s, "message" => message.to_s, "key" => ENV['LOVEMACHINE_API_KEY']})
+  end
+
+  # Match a message that comes in the following format
+  # love @hipchat_nick some message 
+  def handle(time, sender_nick, message)
+    if message =~ /^love (@\w+) (.*)/ 
+      to = $1
+      message = $2
+      love_to = email_from_nick(to)
+
+      # Robut returns us the JID. We need to convert the JID to a mention_name via Hipchats API
+      roster = get_roster
+      match = roster.flatten.select {|u| u['mention_name'] if u['name'] == "#{sender_nick}" }
+      mention_name = Hash[*match.collect{|h| h.to_a}.flatten]
+      
+      # Get the email address of the sender
+      love_from = email_from_nick("@#{mention_name['mention_name']}")
+
+      love = post_love(love_to, love_from, message)
+      if love.code == '201'
+        reply "Love sent!" 
+      else
+        reply "Error could not send love..."
+      end
+
+    end
+  end
+end
+
+Robut::Connection.configure do |config|
+  config.jid = ENV['HIPCHAT_JID']
+  config.password = ENV['HIPCHAT_PASSWORD']
+  config.nick = ENV['HIPCHAT_NICK']
+  config.rooms = [ENV['HIPCHAT_ROOMS']]
+  config.mention_name = ENV['HIPCHAT_MENTION_NAME']
+  config.logger = Logger.new(STDOUT) if ENV['HIPCHAT_DEBUG']
+end
+
+
