@@ -10,6 +10,7 @@ class Love
 Robut::Plugin.plugins << Love
   include Robut::Plugin
 
+
   def email_from_nick(nick)
     uri = URI.parse("https://api.hipchat.com/v2/user/#{nick.strip}?auth_token=#{ENV['HIPCHAT_TOKEN']}")
     response = Net::HTTP.get_response(uri.host, uri.request_uri)
@@ -71,7 +72,7 @@ Robut::Connection.configure do |config|
   config.jid = ENV['HIPCHAT_JID']
   config.password = ENV['HIPCHAT_PASSWORD']
   config.nick = ENV['HIPCHAT_NICK']
-  config.rooms = [ENV['HIPCHAT_ROOMS']]
+  config.rooms = ENV['HIPCHAT_ROOMS']
   config.mention_name = ENV['HIPCHAT_MENTION_NAME']
   config.logger = Logger.new(STDOUT) if ENV['HIPCHAT_DEBUG']
 end
