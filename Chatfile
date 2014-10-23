@@ -73,7 +73,7 @@ Robut::Connection.configure do |config|
   config.jid = ENV['HIPCHAT_JID']
   config.password = ENV['HIPCHAT_PASSWORD']
   config.nick = ENV['HIPCHAT_NICK']
-  config.rooms = [ENV['HIPCHAT_ROOMS'].to_s.split(",")]
+  config.rooms = ENV['HIPCHAT_ROOMS'].to_s.split(",")
   config.mention_name = ENV['HIPCHAT_MENTION_NAME']
   config.logger = Logger.new(STDOUT) if ENV['HIPCHAT_DEBUG']
 end
